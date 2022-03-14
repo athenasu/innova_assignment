@@ -20,7 +20,7 @@ def add_employee(data: json):
 
 
 # RETURNS EMPLOYEE HIERARCHY DICTIONARY
-def employees_hierarchy(employees):
+def employees_hierarchy(employees: dict[int, Employee]):
     manager_employee = {}
 
     for id, employee in employees.items():
