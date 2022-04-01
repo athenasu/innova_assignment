@@ -17,23 +17,23 @@ import json
 class EmployeeService:
 
     def __init__(self):
-        self.employees = {}
+        self.employees = []
         self.total_salary = 0
         self.managers = set()
+        self.sorted_managers = {}
 
-    def load_employees(self, json_filename: str) -> dict[int, Employee]:
+    def load_employees(self, json_filename: str) -> list[Employee]:
         try:
             with importlib.resources.open_text("resources", json_filename) as f:
                 employees_list = json.load(f)
                 for employee in employees_list:
-                    check_point = CheckEmployeesJson(**employee)
-                    if check_point.id:
-                        self.employees[employee["id"]] = Employee(employee["id"],
-                                                                  employee["first_name"],
-                                                                  employee["manager"],
-                                                                  employee["salary"])
-                        if employee["manager"] is not None:
-                            self.managers.add(employee["manager"])
+                    CheckEmployeesJson(**employee)
+                    self.employees.append(Employee(employee["id"],
+                                                   employee["first_name"],
+                                                   employee["manager"],
+                                                   employee["salary"]))
+                    if employee["manager"] is not None:
+                        self.managers.add(employee["manager"])
             return self.employees
         except FileNotFoundError as e:
             print("File not found error")
@@ -41,45 +41,54 @@ class EmployeeService:
         except json.JSONDecodeError as e:
             print("Wrong JSON format")
             print(e)
+        except TypeError:
+            raise TypeError("Type unexpected")
 
-    def set_is_manager(self, employees: dict[int, Employee]) -> int:
-        for emp_id, employee in employees.items():
-            if emp_id in self.managers:
-                employee.set_is_manager(True)
-            if employee.is_top_manager:
-                return employee.employee_id
+    def set_is_manager(self, employees: list[Employee]) -> None:
+        for emp in employees:
+            if emp.employee_id in self.managers:
+                self.managers.remove(emp.employee_id)
+                self.managers.add(emp)
+                emp.set_is_manager(True)
 
-    def find_top_manager(self, employees: dict[int, Employee], top_manager_id: int) -> str:
-        for key, emp in employees.items():
-            if emp.employee_id == top_manager_id:
-                return emp.first_name
+    # recursive call that sorts the managers
+    def sort_managers(self, manager_id, index: int):
+        if index >= len(self.managers):
+            return
 
-    def find_team_members(self, employees: dict[int, Employee], manager_id: int) -> list[str]:
-        team_members = []
-        for key, emp in employees.items():
-            if manager_id == emp.manager:
-                team_members.append(emp.first_name)
-        team_members.sort()
-        return team_members
+        new_manager_id = 0
+        for manager in self.managers:
+            if manager.manager == manager_id:
+                self.sorted_managers[manager.employee_id] = index
+                new_manager_id = manager.employee_id
+        self.sort_managers(new_manager_id, index + 1)
+        return self.sorted_managers
 
-    def print_hierarchy(self, employees: dict[int, Employee]) -> None:
-        top_manager_id = self.set_is_manager(employees)
-        top_manager_name = self.find_top_manager(employees, top_manager_id)
-        tab = "\t"
-        level = 1
-        print(top_manager_name)
-        print(top_manager_name + " is in charge of:")
-        for emp_id, employee in employees.items():
-            if employee.manager is top_manager_id:
-                print(tab * level + employee.first_name)
-                print(tab * level + employee.first_name + " is in charge of:")
-                level += 1
-                if employee.is_manager:
-                    team_members = self.find_team_members(employees, emp_id)
-                    for member in team_members:
-                        print(tab * level + member)
+    def find_manager(self, employees: list[Employee], manager_id: int) -> str:
+        for employee in employees:
+            if employee.employee_id == manager_id:
+                return employee.first_name
 
-    def set_total_salary(self, employee_salary: dict[int, Employee]) -> int:
-        for key, emp in employee_salary.items():
+    def find_member(self, employees: list[Employee], manager_id: int) -> list[str]:
+        members = []
+        for employee in employees:
+            if employee.manager == manager_id:
+                members.append(employee.first_name)
+        return members
+
+    def hierarchy(self, employees: list[Employee]):
+        self.set_is_manager(employees)
+        self.sort_managers(None, 0)
+        for manager_id, index in self.sorted_managers.items():
+            manager_name = self.find_manager(employees, manager_id)
+            print("\t" * index + "Employees of: " + manager_name)
+            members = self.find_member(employees, manager_id)
+            members.sort()
+            for member in members:
+                member_index = index + 1
+                print("\t" * member_index + member)
+
+    def set_total_salary(self, employee_salary: list[Employee]) -> int:
+        for emp in employee_salary:
             self.total_salary += emp.salary
         return self.total_salary

@@ -14,4 +14,4 @@ def test_find_team_members():
     }
 
     service = EmployeeService()
-    assert service.find_team_members(employee_dict, 1)
+    assert service.set_total_salary(employee_dict)
